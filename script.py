@@ -53,13 +53,12 @@ class_names = ['negative', 'neutral', 'positive']
 MAX_LEN = 160
 BATCH_SIZE = 16
 EPOCHS = 10
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-
-def train(train_file, epochs, output_dir, n):
+def train(output_dir):
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
-	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	df = getData()
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
@@ -238,34 +237,62 @@ def getData():
 	df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	return df
 
-# def evaluate(test_file, model_dir, n):
-# 	n = int(n / 2)
-# 	predictor = SentimentBERT()
-# 	predictor.load(model_dir=model_dir)
-#
-# 	dt = SentimentDataset(predictor.tokenizer)
-# 	dataloader = dt.prepare_dataloader(test_file, n)
-# 	score = predictor.evaluate(dataloader, n)
-# 	print("SCORE!")
-# 	filename = model_dir + datetime.datetime.now().strftime("%m-%d-%Y %H %M") + ".txt"
-# 	with open(filename, 'w+') as f:
-# 		f.write(score)
-# 	print(score)
+def evaluate():
+	df = getData()
+	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
+	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
+	df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
+	print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
+
+	test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
+	# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	model = SentimentClassifier(len(class_names))
+	model.load_state_dict(torch.load('best_model_state.bin'))
+	model = model.to(device)
+	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
+		model,
+		test_data_loader
+	)
+	print(classification_report(y_test, y_pred, target_names=class_names))
 
 
-# def predict(text, model_dir):
-# 	predictor = SentimentBERT()
-# 	predictor.load(model_dir=model_dir)
-#
-# 	dt = SentimentDataset(predictor.tokenizer)
-# 	dataloader = dt.prepare_dataloader_from_examples([(text, -1)], sampler=None)  # text and a dummy label
-# 	result = predictor.predict(dataloader)
-#
-# 	return "Positive" if result[0] == 0 else "Negative"
+def get_predictions(model, data_loader):
+	model = model.eval()
+
+	review_texts = []
+	predictions = []
+	prediction_probs = []
+	real_values = []
+
+	with torch.no_grad():
+		for d in data_loader:
+			texts = d["review_text"]
+			input_ids = d["input_ids"].to(device)
+			attention_mask = d["attention_mask"].to(device)
+			targets = d["targets"].to(device)
+
+			outputs = model(
+				input_ids=input_ids,
+				attention_mask=attention_mask
+			)
+			_, preds = torch.max(outputs, dim=1)
+
+			probs = F.softmax(outputs, dim=1)
+
+			review_texts.extend(texts)
+			predictions.extend(preds)
+			prediction_probs.extend(probs)
+			real_values.extend(targets)
+
+	predictions = torch.stack(predictions).cpu()
+	prediction_probs = torch.stack(prediction_probs).cpu()
+	real_values = torch.stack(real_values).cpu()
+	return review_texts, predictions, prediction_probs, real_values
 
 
 if __name__ == '__main__':
 	train("train_file", 10, "weights", 5000)
+	evaluate()
 	# epochs = args.epoch or 20
 	# n = args.n or 25000
 	# path = args.path or "weights/"
