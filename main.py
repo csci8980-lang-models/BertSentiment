@@ -154,8 +154,7 @@ def train_epoch(
 
 	losses = []
 	correct_predictions = 0
-	iterator = tqdm(data_loader)
-	for d in iterator:
+	for d in data_loader:
 		input_ids = d["input_ids"].to(device)
 		attention_mask = d["attention_mask"].to(device)
 		targets = d["targets"].to(device)
