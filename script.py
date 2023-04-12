@@ -291,7 +291,7 @@ def get_predictions(model, data_loader):
 
 
 if __name__ == '__main__':
-	train("train_file", 10, "weights", 5000)
+	# train("weights")
 	evaluate()
 	# epochs = args.epoch or 20
 	# n = args.n or 25000
