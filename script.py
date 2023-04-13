@@ -1,15 +1,10 @@
 import os
 import argparse
-import random
-from torch.utils.data import RandomSampler
-# from transformers import BertConfig, BertForSequenceClassification, BertTokenizer
 import datetime
 import time
-import torch
 
 from freezing import freezingModifications
 
-import transformers
 from classifier import SentimentClassifier
 from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
@@ -17,14 +12,15 @@ import dataset
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, classification_report
-from collections import defaultdict
-from textwrap import wrap
+from sklearn.metrics import classification_report
 from tqdm import tqdm
 
-from torch import nn, optim
-from torch.utils.data import Dataset, DataLoader
+from torch import nn
 import torch.nn.functional as F
+
+from pyvacy import optim as optim_pyvacy
+from pyvacy import analysis as pyvacy_analysis
+from pyvacy import sampling
 
 BERT_MODEL = 'bert-base-uncased'
 NUM_LABELS = 2  # negative and positive reviews
