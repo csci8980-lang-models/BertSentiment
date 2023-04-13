@@ -283,8 +283,8 @@ def get_predictions(model, data_loader):
 
 
 if __name__ == '__main__':
-	# train("weights")
-	evaluate()
+	train("weights")
+	# evaluate()
 	# epochs = args.epoch or 20
 	# n = args.n or 25000
 	# path = args.path or "weights/"
