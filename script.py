@@ -152,10 +152,14 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 				_, preds = torch.max(outputs, dim=1)
 				loss = loss_fn(outputs, targets_micro)
 				correct_predictions += torch.sum(preds == targets)
+				print("Preds", preds)
+				print("targets", targets)
+				print("correct_predictions", correct_predictions)
+				break
 				losses.append(loss.item())
 				loss.backward()
 				optimizer.microbatch_step()
-
+			break
 			optimizer.step()
 			scheduler.step()
 			optimizer.zero_grad()
