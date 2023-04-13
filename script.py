@@ -96,7 +96,7 @@ def train(out_dir, epochs):
 
 	os.makedirs(out_dir, exist_ok=True)
 	start_time = time.time()
-	for epoch in range(epochs):
+	for epoch in tqdm(range(epochs)):
 		print(f'Epoch {epoch + 1}/{epochs}')
 		print('-' * 10)
 
