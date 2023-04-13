@@ -3,3 +3,4 @@
 *.icloud
 *.csv
 __pycache__
+results/
