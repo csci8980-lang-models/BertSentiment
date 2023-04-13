@@ -1,0 +1,2 @@
+#!/bin/bash
+python script.py --train && python script.py --train --freeze --epoch=100 && python script.py --train --paramF --portion=25 && python script.py --train --paramF --portion=50 && python script.py --train --paramF --portion=75 && python script.py --train --layerF --portion=25 && python script.py --train --layerF --portion=50 && python script.py --train --layerF --portion=75 && python script.py --train --plF --portion=25 && python script.py --train --plF --portion=50 && python script.py --train --plF --portion=75

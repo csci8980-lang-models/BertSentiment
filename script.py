@@ -36,6 +36,7 @@ parser.add_argument('--paramF', action="store_true", help="Freeze subset of laye
 parser.add_argument('--layerF', action="store_true", help="Freeze subset of parameters")
 parser.add_argument('--plF', action="store_true", help="Freeze subset of parameters and layers")
 parser.add_argument('--epoch', type=int, help="Num Epochs")
+parser.add_argument('--portion', type=int, help="Portion of layers/parameters to freeze")
 parser.add_argument('--freeze', action="store_true", help="Freeze bert")
 parser.add_argument('--evaluate', action="store_true", help="Evaluate existing weights")
 parser.add_argument('--predict', default="", type=str, help="Predict sentiment on a given sentence")
@@ -201,9 +202,11 @@ def evaluate(out_dir, total_time, epochs):
 		model,
 		test_data_loader
 	)
+	trainable_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
 	score = classification_report(y_test, y_pred, target_names=class_names)
 	with open(out_dir + 'results.txt', 'w+') as f:
 		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}\n")
+		f.write(f"trainable_param: {trainable_param}\n")
 		f.write(f"LEARNING_RATE = {LEARNING_RATE}, L2_NORM_CLIP = {L2_NORM_CLIP}, NOISE = {NOISE}\n")
 		f.write(score)
 

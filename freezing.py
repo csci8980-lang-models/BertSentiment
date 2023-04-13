@@ -1,10 +1,11 @@
 import random
 
-PORTION = .9
 
 
 def freezingModifications(args, model, output_dir):
+	PORTION = (args.portion / 100)
 	if args.plF:
+		output_dir = output_dir + "plF/" + str(args.portion) + "/"
 		layers = [model.fc]
 
 		for layer in model.bert.encoder.layer:
@@ -29,7 +30,7 @@ def freezingModifications(args, model, output_dir):
 				param.requires_grad = False
 
 	if args.layerF:
-		output_dir = output_dir + "layerF/"
+		output_dir = output_dir + "layerF/" + str(args.portion) + "/"
 		layers = [model.fc]
 		for layer in model.bert.encoder.layer:
 			layers.append(layer)
@@ -42,7 +43,7 @@ def freezingModifications(args, model, output_dir):
 				param.requires_grad = False
 
 	if args.paramF:
-		output_dir = output_dir + "paramF/"
+		output_dir = output_dir + "paramF/" + str(args.portion) + "/"
 		parameters = []
 		for layer in model.bert.encoder.layer:
 			for param in layer.parameters():
