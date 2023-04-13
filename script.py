@@ -124,7 +124,6 @@ def train(output_dir):
 			train_data_loader,
 			loss_fn,
 			optimizer,
-			device,
 			scheduler,
 			len(df_train)
 		)
@@ -152,20 +151,15 @@ def train(output_dir):
 			best_accuracy = val_acc
 
 
-def train_epoch(
-		model,
-		data_loader,
-		loss_fn,
-		optimizer,
-		device,
-		scheduler,
-		n_examples
-	):
+def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 	model = model.train()
 
 	losses = []
 	correct_predictions = 0
-	for d in data_loader:
+
+	iterator = tqdm(data_loader)
+
+	for d in iterator:
 		input_ids = d["input_ids"].to(device)
 		attention_mask = d["attention_mask"].to(device)
 		targets = d["targets"].to(device)
