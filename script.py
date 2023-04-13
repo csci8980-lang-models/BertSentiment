@@ -14,13 +14,15 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from tqdm import tqdm
-
+from torch.utils.data import TensorDataset
 from torch import nn
 import torch.nn.functional as F
-
+from math import ceil
 from pyvacy import optim as optim_pyvacy
 from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
+
+print("Printing1")
 
 BERT_MODEL = 'bert-base-uncased'
 NUM_LABELS = 2  # negative and positive reviews
@@ -49,6 +51,7 @@ LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
 NOISE = 1.1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("Printing2")
 
 
 def train(out_dir, epochs):
@@ -95,7 +98,6 @@ def train(out_dir, epochs):
 	os.makedirs(out_dir, exist_ok=True)
 	start_time = time.time()
 	for epoch in range(epochs):
-		print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 		print(f'Epoch {epoch + 1}/{epochs}')
 		print('-' * 10)
 
@@ -132,36 +134,35 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 		minibatch_loader, microbatch_loader = sampling.get_data_loaders(
 			BATCH_SIZE,
 			1,
-			n_examples
+			ceil(n_examples / BATCH_SIZE)
 		)
 		trainset = getDPData()
 		losses = []
 		correct_predictions = 0
-		for j, batch in enumerate(minibatch_loader(trainset)):
-			print(j, batch)
-			break
-		# 	input_ids = d["input_ids"].to(device)
-		# 	attention_mask = d["attention_mask"].to(device)
-		# 	targets = d["targets"].to(device)
-		#
-		# 	outputs = model(
-		# 		input_ids=input_ids,
-		# 		attention_mask=attention_mask
-		# 	)
-		#
-		# 	_, preds = torch.max(outputs, dim=1)
-		# 	loss = loss_fn(outputs, targets)
-		#
-		# 	correct_predictions += torch.sum(preds == targets)
-		# 	losses.append(loss.item())
-		#
-		# 	loss.backward()
-		# 	nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-		# 	optimizer.step()
-		# 	scheduler.step()
-		# 	optimizer.zero_grad()
-		#
-		# return correct_predictions.double() / n_examples, np.mean(losses)
+		for batch in tqdm(minibatch_loader(trainset)):
+			input_ids = batch["input_ids"].to(device)
+			attention_mask = batch["attention_mask"].to(device)
+			targets = batch["targets"].to(device)
+			for input_id_micro, attention_mask_micro, targets_micro in microbatch_loader(
+					TensorDataset(input_ids, attention_mask, targets)):
+				optimizer.zero_microbatch_grad()
+				outputs = model(
+					input_ids=input_id_micro,
+					attention_mask=attention_mask_micro
+				)
+				_, preds = torch.max(outputs, dim=1)
+				loss = loss_fn(outputs, targets_micro)
+				correct_predictions += torch.sum(preds == targets)
+				losses.append(loss.item())
+				loss.backward()
+				optimizer.microbatch_step()
+
+			optimizer.step()
+			scheduler.step()
+			optimizer.zero_grad()
+
+		return correct_predictions.double() / n_examples, np.mean(losses)
+
 
 	else:
 		losses = []
@@ -173,7 +174,6 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			input_ids = d["input_ids"].to(device)
 			attention_mask = d["attention_mask"].to(device)
 			targets = d["targets"].to(device)
-
 			outputs = model(
 				input_ids=input_ids,
 				attention_mask=attention_mask
@@ -302,6 +302,7 @@ def get_predictions(model, data_loader):
 if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
+	print("Printing!!")
 	if args.train:
 		output_dir, seconds, paramNum = train(path, epochs)
 		evaluate(output_dir, seconds, epochs, str(paramNum))
