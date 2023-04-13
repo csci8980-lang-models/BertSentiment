@@ -71,7 +71,10 @@ def train(out_dir, epochs):
 		for param in layer.parameters():
 			param.requires_grad = True
 
+	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
+
 	model, out_dir = freezingModifications(args, model, out_dir)
+	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 	out_dir += datetime.datetime.now().strftime("%m-%d-%Y") + "/"
 	best_accuracy = 0
 
