@@ -6,6 +6,8 @@ from torch.utils.data import RandomSampler
 import datetime
 import torch
 
+from freezing import freezingModifications
+
 import transformers
 from classifier import SentimentClassifier
 from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup
@@ -25,12 +27,12 @@ import torch.nn.functional as F
 
 BERT_MODEL = 'bert-base-uncased'
 NUM_LABELS = 2  # negative and positive reviews
-PORTION = .9
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
 parser.add_argument('--paramF', action="store_true", help="Freeze subset of layers")
 parser.add_argument('--layerF', action="store_true", help="Freeze subset of parameters")
+parser.add_argument('--plF', action="store_true", help="Freeze subset of parameters and layers")
 parser.add_argument('--epoch', type=int, help="Num Epochs")
 parser.add_argument('--freeze', action="store_true", help="Freeze bert")
 parser.add_argument('--evaluate', action="store_true", help="Evaluate existing weights")
@@ -42,11 +44,10 @@ RANDOM_SEED = 42
 class_names = ['negative', 'neutral', 'positive']
 MAX_LEN = 160
 BATCH_SIZE = 16
-EPOCHS = 10
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def train(output_dir):
+def train(output_dir, epochs):
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	df = getData()
@@ -64,7 +65,7 @@ def train(output_dir):
 	model = SentimentClassifier(len(class_names))
 	model = model.to(device)
 	optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
-	total_steps = len(train_data_loader) * EPOCHS
+	total_steps = len(train_data_loader) * epochs
 
 	scheduler = get_linear_schedule_with_warmup(
 		optimizer,
@@ -74,49 +75,12 @@ def train(output_dir):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
-	if args.freeze:
-		output_dir = output_dir + "freeze/"
-		for layer in model.bert.encoder.layer:
-			for param in layer.parameters():
-				param.requires_grad = False
-
-	if args.layerF:
-		output_dir = output_dir + "layerF/"
-		layers = [model.fc]
-		for layer in model.bert.encoder.layer:
-			layers.append(layer)
-
-		count = int(len(layers) * PORTION)
-		layers = random.sample(layers, count)
-
-		for layer in layers:
-			for param in layer.parameters():
-				param.requires_grad = False
-
-	if args.paramF:
-		output_dir = output_dir + "paramF/"
-		parameters = []
-		for layer in model.bert.encoder.layer:
-			for param in layer.parameters():
-				if param.requires_grad:
-					parameters.append(param)
-
-		for param in model.parameters():
-			if param.requires_grad:
-				parameters.append(param)
-
-		count = int(len(parameters) * PORTION)
-		subset = random.sample(parameters, count)
-
-		for param in subset:
-			param.requires_grad = False
-
-	history = defaultdict(list)
+	model, output_dir = freezingModifications(args, model, output_dir)
 	best_accuracy = 0
 
-	for epoch in range(EPOCHS):
+	for epoch in range(epochs):
 
-		print(f'Epoch {epoch + 1}/{EPOCHS}')
+		print(f'Epoch {epoch + 1}/{epochs}')
 		print('-' * 10)
 
 		train_acc, train_loss = train_epoch(
@@ -134,21 +98,16 @@ def train(output_dir):
 			model,
 			val_data_loader,
 			loss_fn,
-			device,
 			len(df_val)
 		)
 
 		print(f'Val   loss {val_loss} accuracy {val_acc}')
-		print()
-
-		history['train_acc'].append(train_acc)
-		history['train_loss'].append(train_loss)
-		history['val_acc'].append(val_acc)
-		history['val_loss'].append(val_loss)
 
 		if val_acc > best_accuracy:
-			torch.save(model.state_dict(), 'best_model_state.bin')
+			torch.save(model.state_dict(), output_dir + 'best_model_state.bin')
 			best_accuracy = val_acc
+
+	return output_dir
 
 
 def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
@@ -184,7 +143,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 	return correct_predictions.double() / n_examples, np.mean(losses)
 
 
-def eval_model(model, data_loader, loss_fn, device, n_examples):
+def eval_model(model, data_loader, loss_fn, n_examples):
 	model = model.eval()
 
 	losses = []
@@ -210,20 +169,13 @@ def eval_model(model, data_loader, loss_fn, device, n_examples):
 	return correct_predictions.double() / n_examples, np.mean(losses)
 
 
-
-
 def getData():
 	df = pd.read_csv("reviews.csv")
-	print("DATA FRAME Head", df.head())
-
-	print("DF Shape:", df.shape)
-
-	print(df.hist(column="score"))
-
 	df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	return df
 
-def evaluate():
+
+def evaluate(output_dir):
 	df = getData()
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
@@ -239,7 +191,10 @@ def evaluate():
 		model,
 		test_data_loader
 	)
-	print(classification_report(y_test, y_pred, target_names=class_names))
+	score = classification_report(y_test, y_pred, target_names=class_names)
+	with open(output_dir + 'results.txt', 'w+') as f:
+		f.write(score)
+	print(score)
 
 
 def get_predictions(model, data_loader):
@@ -277,17 +232,14 @@ def get_predictions(model, data_loader):
 
 
 if __name__ == '__main__':
-	train("weights")
-	# evaluate()
-	# epochs = args.epoch or 20
-	# n = args.n or 25000
-	# path = args.path or "weights/"
-	# if args.train:
-	# 	os.makedirs(args.path, exist_ok=True)
-	# 	train(args.train_file, epochs, path, n)
-	#
-	# if args.evaluate:
-	# 	evaluate(args.test_file, path, n)
-	#
-	# if len(args.predict) > 0:
-	# 	print(predict(args.predict, args.path))
+	epochs = args.epoch or 10
+	path = args.path or "results/"
+	if args.train:
+		output_dir = train(path, epochs)
+		evaluate(output_dir)
+
+	if args.evaluate:
+		evaluate(path)
+#
+# if len(args.predict) > 0:
+# 	print(predict(args.predict, args.path))
