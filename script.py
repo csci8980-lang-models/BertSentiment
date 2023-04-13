@@ -48,7 +48,7 @@ BATCH_SIZE = 16
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def train(output_dir, epochs):
+def train(out_dir, epochs):
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	df = getData()
@@ -76,8 +76,10 @@ def train(output_dir, epochs):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
-	model, output_dir = freezingModifications(args, model, output_dir)
+	model, out_dir = freezingModifications(args, model, out_dir)
 	best_accuracy = 0
+
+	os.makedirs(out_dir, exist_ok=True)
 
 	for epoch in range(epochs):
 
@@ -105,10 +107,10 @@ def train(output_dir, epochs):
 		print(f'Val   loss {val_loss} accuracy {val_acc}')
 
 		if val_acc > best_accuracy:
-			torch.save(model.state_dict(), output_dir + 'best_model_state.bin')
+			torch.save(model.state_dict(), out_dir + 'best_model_state.bin')
 			best_accuracy = val_acc
 
-	return output_dir
+	return out_dir
 
 
 def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
@@ -176,7 +178,7 @@ def getData():
 	return df
 
 
-def evaluate(output_dir):
+def evaluate(out_dir):
 	df = getData()
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
@@ -193,7 +195,7 @@ def evaluate(output_dir):
 		test_data_loader
 	)
 	score = classification_report(y_test, y_pred, target_names=class_names)
-	with open(output_dir + 'results.txt', 'w+') as f:
+	with open(out_dir + 'results.txt', 'w+') as f:
 		f.write(score)
 	print(score)
 
