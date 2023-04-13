@@ -51,7 +51,6 @@ LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
 NOISE = 1.1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print("Printing2")
 
 
 def train(out_dir, epochs):
@@ -161,6 +160,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			scheduler.step()
 			optimizer.zero_grad()
 
+		print(correct_predictions, n_examples)
 		return correct_predictions.double() / n_examples, np.mean(losses)
 
 
@@ -302,7 +302,6 @@ def get_predictions(model, data_loader):
 if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
-	print("Printing!!")
 	if args.train:
 		output_dir, seconds, paramNum = train(path, epochs)
 		evaluate(output_dir, seconds, epochs, str(paramNum))
