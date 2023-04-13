@@ -3,7 +3,10 @@ import random
 
 
 def freezingModifications(args, model, output_dir):
-	PORTION = (args.portion / 100)
+	if args.portion:
+		PORTION = (args.portion / 100)
+	else:
+		PORTION = 1
 	if args.plF:
 		output_dir = output_dir + "plF/" + str(args.portion) + "/"
 		layers = [model.fc]
