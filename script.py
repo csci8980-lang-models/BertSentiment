@@ -187,6 +187,10 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			loss = loss_fn(outputs, targets)
 
 			correct_predictions += torch.sum(preds == targets)
+			print("Preds", preds)
+			print("targets", targets)
+			print("correct_predictions", correct_predictions)
+			break
 			losses.append(loss.item())
 
 			loss.backward()
