@@ -194,7 +194,8 @@ def getData(train):
 		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
 		return test_data_loader
 
-def evaluate(out_dir, total_time, epochs):
+
+def evaluate(out_dir, total_time, epochs, paramNum):
 	test_data_loader = getData(False)
 	model = SentimentClassifier(len(class_names))
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
@@ -203,11 +204,10 @@ def evaluate(out_dir, total_time, epochs):
 		model,
 		test_data_loader
 	)
-	trainable_param = sum(p.numel() for p in model.parameters() if p.requires_grad)
 	score = classification_report(y_test, y_pred, target_names=class_names)
 	with open(out_dir + 'results.txt', 'w+') as f:
 		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}\n")
-		f.write(f"trainable_param: {trainable_param}\n")
+		f.write(f"trainable_param: {paramNum}\n")
 		f.write(f"LEARNING_RATE = {LEARNING_RATE}, L2_NORM_CLIP = {L2_NORM_CLIP}, NOISE = {NOISE}\n")
 		f.write(score)
 
@@ -253,7 +253,7 @@ if __name__ == '__main__':
 	path = args.path or "results/"
 	if args.train:
 		output_dir, seconds, paramNum = train(path, epochs)
-		evaluate(output_dir, seconds, epochs, paramNum)
+		evaluate(output_dir, seconds, epochs, str(paramNum))
 
 	if args.evaluate:
 		evaluate(path, 0, epochs, 'N/A')
