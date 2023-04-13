@@ -79,7 +79,8 @@ def train(out_dir, epochs):
 	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 	model, out_dir = freezingModifications(args, model, out_dir)
-	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
+	params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+	print("trainable params", params)
 	out_dir += datetime.datetime.now().strftime("%m-%d-%Y") + "/"
 	best_accuracy = 0
 
@@ -114,7 +115,7 @@ def train(out_dir, epochs):
 			torch.save(model.state_dict(), out_dir + 'best_model_state.bin')
 			best_accuracy = val_acc
 	total_time = time.time() - start_time
-	return out_dir, total_time
+	return out_dir, total_time, params
 
 
 def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
@@ -251,11 +252,11 @@ if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
 	if args.train:
-		output_dir, seconds = train(path, epochs)
-		evaluate(output_dir, seconds, epochs)
+		output_dir, seconds, paramNum = train(path, epochs)
+		evaluate(output_dir, seconds, epochs, paramNum)
 
 	if args.evaluate:
-		evaluate(path, 0, epochs)
+		evaluate(path, 0, epochs, 'N/A')
 #
 # if len(args.predict) > 0:
 # 	print(predict(args.predict, args.path))
