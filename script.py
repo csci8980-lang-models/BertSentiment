@@ -4,6 +4,7 @@ import random
 from torch.utils.data import RandomSampler
 # from transformers import BertConfig, BertForSequenceClassification, BertTokenizer
 import datetime
+import time
 import torch
 
 from freezing import freezingModifications
@@ -79,7 +80,7 @@ def train(out_dir, epochs):
 	best_accuracy = 0
 
 	os.makedirs(out_dir, exist_ok=True)
-
+	start_time = time.time()
 	for epoch in range(epochs):
 
 		print(f'Epoch {epoch + 1}/{epochs}')
@@ -108,8 +109,8 @@ def train(out_dir, epochs):
 		if val_acc > best_accuracy:
 			torch.save(model.state_dict(), out_dir + 'best_model_state.bin')
 			best_accuracy = val_acc
-
-	return out_dir
+	total_time = time.time() - start_time
+	return out_dir, total_time
 
 
 def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
@@ -186,7 +187,7 @@ def getData():
 	return df_train, df_val, train_data_loader, val_data_loader
 
 
-def evaluate(out_dir):
+def evaluate(out_dir, total_time):
 	df = getData()
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
@@ -204,6 +205,7 @@ def evaluate(out_dir):
 	)
 	score = classification_report(y_test, y_pred, target_names=class_names)
 	with open(out_dir + 'results.txt', 'w+') as f:
+		f.write(f"Total Time: {total_time} seconds")
 		f.write(score)
 	print(score)
 
@@ -246,11 +248,11 @@ if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
 	if args.train:
-		output_dir = train(path, epochs)
-		evaluate(output_dir)
+		output_dir, seconds = train(path, epochs)
+		evaluate(output_dir, seconds)
 
 	if args.evaluate:
-		evaluate(path)
+		evaluate(path, 0)
 #
 # if len(args.predict) > 0:
 # 	print(predict(args.predict, args.path))
