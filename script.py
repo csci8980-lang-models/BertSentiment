@@ -30,6 +30,7 @@ NUM_LABELS = 2  # negative and positive reviews
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
+parser.add_argument('--path', action="store_true", help="Path of desired model/where you want results")
 parser.add_argument('--paramF', action="store_true", help="Freeze subset of layers")
 parser.add_argument('--layerF', action="store_true", help="Freeze subset of parameters")
 parser.add_argument('--plF', action="store_true", help="Freeze subset of parameters and layers")
