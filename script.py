@@ -51,16 +51,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 def train(out_dir, epochs):
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
-	df = getData()
-	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
-	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
-	print("Training size vs. predicted", len(df_train), len(df) * .9)
-	df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
-	print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
-
-	train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
-	val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
-	test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
+	df_train, df_val, train_data_loader, val_data_loader = getData()
 
 	print("Device", device)
 	model = SentimentClassifier(len(class_names))
@@ -81,6 +72,7 @@ def train(out_dir, epochs):
 			param.requires_grad = True
 
 	model, out_dir = freezingModifications(args, model, out_dir)
+	out_dir += datetime.datetime.now().strftime("%m-%d-%Y") + "/"
 	best_accuracy = 0
 
 	os.makedirs(out_dir, exist_ok=True)
@@ -179,7 +171,16 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 def getData():
 	df = pd.read_csv("reviews.csv")
 	df['sentiment'] = df.score.apply(dataset.to_sentiment)
-	return df
+	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
+	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
+	print("Training size vs. predicted", len(df_train), len(df) * .9)
+	df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
+	print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
+
+	train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
+	val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
+
+	return df_train, df_val, train_data_loader, val_data_loader
 
 
 def evaluate(out_dir):
