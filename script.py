@@ -13,10 +13,6 @@ import torch
 import dataset
 import numpy as np
 import pandas as pd
-import seaborn as sns
-from pylab import rcParams
-import matplotlib.pyplot as plt
-from matplotlib import rc
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 from collections import defaultdict
@@ -35,16 +31,10 @@ parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
 parser.add_argument('--paramF', action="store_true", help="Freeze subset of layers")
 parser.add_argument('--layerF', action="store_true", help="Freeze subset of parameters")
-parser.add_argument('-n', type=int, help="Dataset size")
 parser.add_argument('--epoch', type=int, help="Num Epochs")
 parser.add_argument('--freeze', action="store_true", help="Freeze bert")
 parser.add_argument('--evaluate', action="store_true", help="Evaluate existing weights")
 parser.add_argument('--predict', default="", type=str, help="Predict sentiment on a given sentence")
-parser.add_argument('--path', default='weights/', type=str, help="Weights path")
-parser.add_argument('--train-file', default='data/imdb_train.txt',
-					type=str, help="IMDB train file. One sentence per line.")
-parser.add_argument('--test-file', default='data/imdb_test.txt',
-					type=str, help="IMDB train file. One sentence per line.")
 args = parser.parse_args()
 
 PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
@@ -62,6 +52,7 @@ def train(output_dir):
 	df = getData()
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
+	print("Training size vs. predicted", len(df_train), len(df) * .9)
 	df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
 	print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
 
@@ -119,6 +110,7 @@ def train(output_dir):
 
 		for param in subset:
 			param.requires_grad = False
+
 	history = defaultdict(list)
 	best_accuracy = 0
 
@@ -168,7 +160,7 @@ def train_epoch(
 		device,
 		scheduler,
 		n_examples
-):
+	):
 	model = model.train()
 
 	losses = []
