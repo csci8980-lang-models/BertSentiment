@@ -46,6 +46,9 @@ RANDOM_SEED = 42
 class_names = ['negative', 'neutral', 'positive']
 MAX_LEN = 160
 BATCH_SIZE = 16
+LEARNING_RATE = 2e-5
+L2_NORM_CLIP = 1.0
+NOISE = 1.1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -187,9 +190,9 @@ def getData(train):
 
 	else:
 		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
+		return test_data_loader
 
-
-def evaluate(out_dir, total_time):
+def evaluate(out_dir, total_time, epochs):
 	test_data_loader = getData(False)
 	model = SentimentClassifier(len(class_names))
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
@@ -200,8 +203,10 @@ def evaluate(out_dir, total_time):
 	)
 	score = classification_report(y_test, y_pred, target_names=class_names)
 	with open(out_dir + 'results.txt', 'w+') as f:
-		f.write(f"Total Time: {total_time} seconds")
+		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}\n")
+		f.write(f"LEARNING_RATE = {LEARNING_RATE}, L2_NORM_CLIP = {L2_NORM_CLIP}, NOISE = {NOISE}\n")
 		f.write(score)
+
 	print(score)
 
 
@@ -244,10 +249,10 @@ if __name__ == '__main__':
 	path = args.path or "results/"
 	if args.train:
 		output_dir, seconds = train(path, epochs)
-		evaluate(output_dir, seconds)
+		evaluate(output_dir, seconds, epochs)
 
 	if args.evaluate:
-		evaluate(path, 0)
+		evaluate(path, 0, epochs)
 #
 # if len(args.predict) > 0:
 # 	print(predict(args.predict, args.path))
