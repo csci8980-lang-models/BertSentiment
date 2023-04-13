@@ -76,6 +76,10 @@ def train(out_dir, epochs):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
+	for layer in model.bert.encoder.layer:
+		for param in layer.parameters():
+			param.requires_grad = True
+
 	model, out_dir = freezingModifications(args, model, out_dir)
 	best_accuracy = 0
 
@@ -188,7 +192,7 @@ def evaluate(out_dir):
 	test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
 	# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	model = SentimentClassifier(len(class_names))
-	model.load_state_dict(torch.load('best_model_state.bin'))
+	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
 	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
 		model,
