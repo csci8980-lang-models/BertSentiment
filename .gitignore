@@ -1,5 +1,6 @@
 .idea
 .DS_Store
 *.icloud
+*.csv
 __pycache__
 results/
