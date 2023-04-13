@@ -86,7 +86,7 @@ def train(out_dir, epochs):
 	os.makedirs(out_dir, exist_ok=True)
 	start_time = time.time()
 	for epoch in range(epochs):
-
+		print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 		print(f'Epoch {epoch + 1}/{epochs}')
 		print('-' * 10)
 
