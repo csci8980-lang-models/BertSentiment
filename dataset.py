@@ -57,3 +57,12 @@ def create_data_loader(df, tokenizer, max_len, batch_size):
 		ds,
 		batch_size=batch_size,
 	)
+
+
+def create_dataset(df, tokenizer, max_len):
+	return GPReviewDataset(
+		reviews=df.content.to_numpy(),
+		targets=df.sentiment.to_numpy(),
+		tokenizer=tokenizer,
+		max_len=max_len
+	)

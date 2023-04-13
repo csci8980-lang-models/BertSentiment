@@ -36,6 +36,8 @@ parser.add_argument('--portion', type=int, help="Portion of layers/parameters to
 parser.add_argument('--freeze', action="store_true", help="Freeze bert")
 parser.add_argument('--evaluate', action="store_true", help="Evaluate existing weights")
 parser.add_argument('--predict', default="", type=str, help="Predict sentiment on a given sentence")
+parser.add_argument('--dp', action="store_true", help="use pyvacy")
+
 args = parser.parse_args()
 
 PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
@@ -57,7 +59,17 @@ def train(out_dir, epochs):
 	print("Device", device)
 	model = SentimentClassifier(len(class_names))
 	model = model.to(device)
-	optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
+	if args.dp:
+		optimizer = optim_pyvacy.DPAdam(
+			params=model.parameters(),
+			l2_norm_clip=L2_NORM_CLIP,
+			noise_multiplier=NOISE,
+			minibatch_size=BATCH_SIZE,
+			microbatch_size=1,
+			lr=LEARNING_RATE,
+		)
+	else:
+		optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
 	total_steps = len(train_data_loader) * epochs
 
 	scheduler = get_linear_schedule_with_warmup(
@@ -116,35 +128,70 @@ def train(out_dir, epochs):
 
 def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 	model = model.train()
-
-	losses = []
-	correct_predictions = 0
-
-	iterator = tqdm(data_loader)
-
-	for d in iterator:
-		input_ids = d["input_ids"].to(device)
-		attention_mask = d["attention_mask"].to(device)
-		targets = d["targets"].to(device)
-
-		outputs = model(
-			input_ids=input_ids,
-			attention_mask=attention_mask
+	if args.dp:
+		minibatch_loader, microbatch_loader = sampling.get_data_loaders(
+			BATCH_SIZE,
+			1,
+			n_examples
 		)
+		trainset = getDPData()
+		losses = []
+		correct_predictions = 0
+		for j, batch in enumerate(minibatch_loader(trainset)):
+			print(j, batch)
+			break
+		# 	input_ids = d["input_ids"].to(device)
+		# 	attention_mask = d["attention_mask"].to(device)
+		# 	targets = d["targets"].to(device)
+		#
+		# 	outputs = model(
+		# 		input_ids=input_ids,
+		# 		attention_mask=attention_mask
+		# 	)
+		#
+		# 	_, preds = torch.max(outputs, dim=1)
+		# 	loss = loss_fn(outputs, targets)
+		#
+		# 	correct_predictions += torch.sum(preds == targets)
+		# 	losses.append(loss.item())
+		#
+		# 	loss.backward()
+		# 	nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+		# 	optimizer.step()
+		# 	scheduler.step()
+		# 	optimizer.zero_grad()
+		#
+		# return correct_predictions.double() / n_examples, np.mean(losses)
 
-		_, preds = torch.max(outputs, dim=1)
-		loss = loss_fn(outputs, targets)
+	else:
+		losses = []
+		correct_predictions = 0
 
-		correct_predictions += torch.sum(preds == targets)
-		losses.append(loss.item())
+		iterator = tqdm(data_loader)
 
-		loss.backward()
-		nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-		optimizer.step()
-		scheduler.step()
-		optimizer.zero_grad()
+		for d in iterator:
+			input_ids = d["input_ids"].to(device)
+			attention_mask = d["attention_mask"].to(device)
+			targets = d["targets"].to(device)
 
-	return correct_predictions.double() / n_examples, np.mean(losses)
+			outputs = model(
+				input_ids=input_ids,
+				attention_mask=attention_mask
+			)
+
+			_, preds = torch.max(outputs, dim=1)
+			loss = loss_fn(outputs, targets)
+
+			correct_predictions += torch.sum(preds == targets)
+			losses.append(loss.item())
+
+			loss.backward()
+			nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+			optimizer.step()
+			scheduler.step()
+			optimizer.zero_grad()
+
+		return correct_predictions.double() / n_examples, np.mean(losses)
 
 
 def eval_model(model, data_loader, loss_fn, n_examples):
@@ -189,6 +236,14 @@ def getData(train):
 	else:
 		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
 		return test_data_loader
+
+
+def getDPData():
+	df = pd.read_csv("reviews.csv")
+	df['sentiment'] = df.score.apply(dataset.to_sentiment)
+	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
+	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
+	return dataset.create_dataset(df_train, tokenizer, MAX_LEN)
 
 
 def evaluate(out_dir, total_time, epochs, paramNum):
