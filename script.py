@@ -52,7 +52,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 def train(out_dir, epochs):
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
-	df_train, df_val, train_data_loader, val_data_loader = getData()
+	df_train, df_val, train_data_loader, val_data_loader = getData(True)
 
 	print("Device", device)
 	model = SentimentClassifier(len(class_names))
@@ -172,30 +172,25 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 	return correct_predictions.double() / n_examples, np.mean(losses)
 
 
-def getData():
+def getData(train):
 	df = pd.read_csv("reviews.csv")
 	df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
-	print("Training size vs. predicted", len(df_train), len(df) * .9)
-	df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
-	print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
 
-	train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
-	val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
+	if train:
+		df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
+		print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
+		train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
+		val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
+		return df_train, df_val, train_data_loader, val_data_loader
 
-	return df_train, df_val, train_data_loader, val_data_loader
+	else:
+		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
 
 
 def evaluate(out_dir, total_time):
-	df = getData()
-	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
-	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
-	df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
-	print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
-
-	test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
-	# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	test_data_loader = getData(False)
 	model = SentimentClassifier(len(class_names))
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
