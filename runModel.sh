@@ -1,2 +1,2 @@
 #!/bin/bash
-python script.py --train --layerF --portion=25 --epoch=75 && python script.py --train --layerF --portion=50 --epoch=75 && python script.py --train --layerF --portion=75 --epoch=75 && python script.py --train --plF --portion=25 --epoch=75 && python script.py --train --plF --portion=50 --epoch=75 && python script.py --train --plF --portion=75 --epoch=75
+python script.py --train --dp --layerF --portion=25 --epoch=75 && python script.py --train --dp --layerF --portion=50 --epoch=75 && python script.py --train --dp --layerF --portion=75 --epoch=75 && python script.py --train --dp --plF --portion=25 --epoch=75 && python script.py --train --dp --plF --portion=50 --epoch=75 && python script.py --train --dp --plF --portion=75 --epoch=75
