@@ -26,7 +26,7 @@ from pyvacy import analysis
 print("Printing1")
 
 BERT_MODEL = 'bert-base-uncased'
-NUM_LABELS = 2  # negative and positive reviews
+NUM_LABELS = 1  # negative and positive reviews
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
@@ -144,6 +144,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			input_ids = batch["input_ids"].to(device)
 			attention_mask = batch["attention_mask"].to(device)
 			targets = batch["targets"].to(device)
+			# print("targets", targets)
 			for input_id_micro, attention_mask_micro, targets_micro in microbatch_loader(
 					TensorDataset(input_ids, attention_mask, targets)):
 				optimizer.zero_microbatch_grad()
@@ -152,6 +153,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 					attention_mask=attention_mask_micro
 				)
 				_, preds = torch.max(outputs, dim=1)
+				# print("outputs", outputs, "targetMicro", targets_micro)
 				loss = loss_fn(outputs, targets_micro)
 				correct_predictions += torch.sum(preds == targets_micro)
 				# print("Preds", preds)
@@ -247,8 +249,8 @@ def getData(train):
 
 
 def getDPData():
-	df = pd.read_csv("reviews.csv")
-	df['sentiment'] = df.score.apply(dataset.to_sentiment)
+	df = pd.read_csv("sst2.csv")
+	# df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
 	return dataset.create_dataset(df_train, tokenizer, MAX_LEN)

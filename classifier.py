@@ -3,7 +3,7 @@ from transformers import BertModel
 
 from torch import nn
 
-PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+PRE_TRAINED_MODEL_NAME = 'bert-base-uncased'
 
 class SentimentClassifier(nn.Module):
 
