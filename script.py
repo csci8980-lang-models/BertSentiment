@@ -21,6 +21,7 @@ from math import ceil
 from pyvacy import optim as optim_pyvacy
 from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
+from pyvacy import analysis
 
 print("Printing1")
 
@@ -39,13 +40,14 @@ parser.add_argument('--freeze', action="store_true", help="Freeze bert")
 parser.add_argument('--evaluate', action="store_true", help="Evaluate existing weights")
 parser.add_argument('--predict', default="", type=str, help="Predict sentiment on a given sentence")
 parser.add_argument('--dp', action="store_true", help="use pyvacy")
+parser.add_argument('--epsilon', action="store_true", help="find epsilon value for hardcoded inputs")
 
 args = parser.parse_args()
 
-PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+PRE_TRAINED_MODEL_NAME = 'bert-base-uncased'
 RANDOM_SEED = 42
-class_names = ['negative', 'neutral', 'positive']
-MAX_LEN = 160
+class_names = ['negative', 'positive']
+MAX_LEN = 100
 BATCH_SIZE = 16
 LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
@@ -228,8 +230,7 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 
 
 def getData(train):
-	df = pd.read_csv("reviews.csv")
-	df['sentiment'] = df.score.apply(dataset.to_sentiment)
+	df = pd.read_csv("sst2.csv")
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
 
@@ -263,8 +264,9 @@ def evaluate(out_dir, total_time, epochs, paramNum):
 		test_data_loader
 	)
 	score = classification_report(y_test, y_pred, target_names=class_names)
+	epsilon = findEpsilon(epochs)
 	with open(out_dir + 'results.txt', 'w+') as f:
-		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}\n")
+		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}, Epsilon: {epsilon}\n")
 		f.write(f"trainable_param: {paramNum}\n")
 		f.write(f"LEARNING_RATE = {LEARNING_RATE}, L2_NORM_CLIP = {L2_NORM_CLIP}, NOISE = {NOISE}\n")
 		f.write(score)
@@ -306,6 +308,13 @@ def get_predictions(model, data_loader):
 	return review_texts, predictions, prediction_probs, real_values
 
 
+def findEpsilon(epochs):
+	batch_in_epoch = 886
+	num_epoch = epochs
+	epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+	print("epsilon!", epsilon)
+	return epsilon
+
 if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
@@ -315,6 +324,9 @@ if __name__ == '__main__':
 
 	if args.evaluate:
 		evaluate(path, 0, epochs, 'N/A')
+
+	if args.epsilon:
+		findEpsilon()
 #
 # if len(args.predict) > 0:
 # 	print(predict(args.predict, args.path))
