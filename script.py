@@ -47,7 +47,7 @@ if args.sst:
 
 else:
 	PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
-	class_names = ['negative', "neutral" 'positive']
+	class_names = ['negative', "neutral", 'positive']
 	MAX_LEN = 160
 
 RANDOM_SEED = 42
