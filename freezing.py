@@ -1,7 +1,6 @@
 import random
 
 
-
 def freezingModifications(args, model, output_dir):
 	if args.portion:
 		PORTION = (args.portion / 100)
