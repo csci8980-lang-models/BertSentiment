@@ -64,6 +64,7 @@ def train(out_dir, epochs):
 	df_train, df_val, train_data_loader, val_data_loader = getData(True)
 
 	print("Device", device)
+	print(len(class_names), MAX_LEN, PRE_TRAINED_MODEL_NAME)
 	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
 	model = model.to(device)
 	if args.dp:
