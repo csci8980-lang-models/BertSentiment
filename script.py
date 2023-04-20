@@ -335,9 +335,9 @@ def findEpsilon(epochs):
 		print("epsilon!", epsilon)
 		return epsilon
 	else:
-		batch_in_epoch = 886
+		batch_in_epoch = 3789
 		num_epoch = epochs
-		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		epsilon = analysis.epsilon(60614, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
 		print("epsilon!", epsilon)
 		return epsilon
 
@@ -353,7 +353,7 @@ if __name__ == '__main__':
 		evaluate(path, 0, epochs, 'N/A')
 
 	if args.epsilon:
-		findEpsilon()
+		findEpsilon(epochs)
 #
 # if len(args.predict) > 0:
 # 	print(predict(args.predict, args.path))
