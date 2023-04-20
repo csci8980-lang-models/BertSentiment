@@ -234,7 +234,8 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 
 
 def getData(train):
-	if args.sst:
+	sst = True if args.sst else False
+	if sst:
 		df = pd.read_csv("sst2.csv")
 	else:
 		df = pd.read_csv("reviews.csv")
@@ -245,24 +246,25 @@ def getData(train):
 	if train:
 		df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
 		print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
-		train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
-		val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
+		train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE, sst)
+		val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE, sst)
 		return df_train, df_val, train_data_loader, val_data_loader
 
 	else:
-		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
+		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE, sst)
 		return test_data_loader
 
 
 def getDPData():
-	if args.sst:
+	sst = True if args.sst else False
+	if sst:
 		df = pd.read_csv("sst2.csv")
 	else:
 		df = pd.read_csv("reviews.csv")
 		df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
-	return dataset.create_dataset(df_train, tokenizer, MAX_LEN)
+	return dataset.create_dataset(df_train, tokenizer, MAX_LEN, sst)
 
 
 def evaluate(out_dir, total_time, epochs, paramNum):
