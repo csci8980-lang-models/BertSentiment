@@ -328,11 +328,18 @@ def get_predictions(model, data_loader):
 
 
 def findEpsilon(epochs):
-	batch_in_epoch = 886
-	num_epoch = epochs
-	epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
-	print("epsilon!", epsilon)
-	return epsilon
+	if args.sst:
+		batch_in_epoch = 886
+		num_epoch = epochs
+		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		print("epsilon!", epsilon)
+		return epsilon
+	else:
+		batch_in_epoch = 886
+		num_epoch = epochs
+		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		print("epsilon!", epsilon)
+		return epsilon
 
 
 if __name__ == '__main__':
