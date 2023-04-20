@@ -23,11 +23,6 @@ from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
 from pyvacy import analysis
 
-print("Printing1")
-
-BERT_MODEL = 'bert-base-uncased'
-NUM_LABELS = 1  # negative and positive reviews
-
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
 parser.add_argument('--path', action="store_true", help="Path of desired model/where you want results")
@@ -41,13 +36,21 @@ parser.add_argument('--evaluate', action="store_true", help="Evaluate existing w
 parser.add_argument('--predict', default="", type=str, help="Predict sentiment on a given sentence")
 parser.add_argument('--dp', action="store_true", help="use pyvacy")
 parser.add_argument('--epsilon', action="store_true", help="find epsilon value for hardcoded inputs")
+parser.add_argument('--sst', action="store_true", help="Load the SST dataset instead")
 
 args = parser.parse_args()
 
-PRE_TRAINED_MODEL_NAME = 'bert-base-uncased'
+if args.sst:
+	PRE_TRAINED_MODEL_NAME = 'bert-base-uncased'
+	class_names = ['negative', 'positive']
+	MAX_LEN = 100
+
+else:
+	PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+	class_names = ['negative', "neutral" 'positive']
+	MAX_LEN = 160
+
 RANDOM_SEED = 42
-class_names = ['negative', 'positive']
-MAX_LEN = 100
 BATCH_SIZE = 16
 LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
@@ -61,7 +64,7 @@ def train(out_dir, epochs):
 	df_train, df_val, train_data_loader, val_data_loader = getData(True)
 
 	print("Device", device)
-	model = SentimentClassifier(len(class_names))
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
 	model = model.to(device)
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
@@ -170,7 +173,6 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 		print(correct_predictions, n_examples)
 		return correct_predictions.double() / n_examples, np.mean(losses)
 
-
 	else:
 		losses = []
 		correct_predictions = 0
@@ -232,7 +234,11 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 
 
 def getData(train):
-	df = pd.read_csv("sst2.csv")
+	if args.sst:
+		df = pd.read_csv("sst2.csv")
+	else:
+		df = pd.read_csv("reviews.csv")
+		df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
 
@@ -249,8 +255,11 @@ def getData(train):
 
 
 def getDPData():
-	df = pd.read_csv("sst2.csv")
-	# df['sentiment'] = df.score.apply(dataset.to_sentiment)
+	if args.sst:
+		df = pd.read_csv("sst2.csv")
+	else:
+		df = pd.read_csv("reviews.csv")
+		df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
 	return dataset.create_dataset(df_train, tokenizer, MAX_LEN)
@@ -258,7 +267,7 @@ def getDPData():
 
 def evaluate(out_dir, total_time, epochs, paramNum):
 	test_data_loader = getData(False)
-	model = SentimentClassifier(len(class_names))
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
 	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
@@ -268,6 +277,10 @@ def evaluate(out_dir, total_time, epochs, paramNum):
 	score = classification_report(y_test, y_pred, target_names=class_names)
 	epsilon = findEpsilon(epochs)
 	with open(out_dir + 'results.txt', 'w+') as f:
+		if args.sst:
+			f.write(f"Results for SST-2 GLUE dataset\n")
+		else:
+			f.write(f"Results for normal movie dataset\n")
 		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}, Epsilon: {epsilon}\n")
 		f.write(f"trainable_param: {paramNum}\n")
 		f.write(f"LEARNING_RATE = {LEARNING_RATE}, L2_NORM_CLIP = {L2_NORM_CLIP}, NOISE = {NOISE}\n")
@@ -316,6 +329,7 @@ def findEpsilon(epochs):
 	epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
 	print("epsilon!", epsilon)
 	return epsilon
+
 
 if __name__ == '__main__':
 	epochs = args.epoch or 10

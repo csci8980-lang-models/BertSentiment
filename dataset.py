@@ -45,13 +45,21 @@ def to_sentiment(rating):
 		return 2
 
 
-def create_data_loader(df, tokenizer, max_len, batch_size):
-	ds = GPReviewDataset(
-		reviews=df.sentence.to_numpy(),
-		targets=df.label.to_numpy(),
-		tokenizer=tokenizer,
-		max_len=max_len
-	)
+def create_data_loader(df, tokenizer, max_len, batch_size, sst):
+	if sst:
+		ds = GPReviewDataset(
+			reviews=df.sentence.to_numpy(),
+			targets=df.label.to_numpy(),
+			tokenizer=tokenizer,
+			max_len=max_len
+		)
+	else:
+		ds = GPReviewDataset(
+			reviews=df.content.to_numpy(),
+			targets=df.sentiment.to_numpy(),
+			tokenizer=tokenizer,
+			max_len=max_len
+		)
 
 	return DataLoader(
 		ds,
@@ -59,10 +67,18 @@ def create_data_loader(df, tokenizer, max_len, batch_size):
 	)
 
 
-def create_dataset(df, tokenizer, max_len):
-	return GPReviewDataset(
-		reviews=df.sentence.to_numpy(),
-		targets=df.label.to_numpy(),
-		tokenizer=tokenizer,
-		max_len=max_len
-	)
+def create_dataset(df, tokenizer, max_len, sst):
+	if sst:
+		return GPReviewDataset(
+			reviews=df.sentence.to_numpy(),
+			targets=df.label.to_numpy(),
+			tokenizer=tokenizer,
+			max_len=max_len
+		)
+	else:
+		return GPReviewDataset(
+			reviews=df.content.to_numpy(),
+			targets=df.sentiment.to_numpy(),
+			tokenizer=tokenizer,
+			max_len=max_len
+		)
