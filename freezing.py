@@ -51,8 +51,8 @@ def freezingModifications(args, model, output_dir):
 			for param in layer.parameters():
 				parameters.append(param)
 
-		# for param in model.parameters():
-		# 	parameters.append(param)
+		for param in model.parameters():
+			parameters.append(param)
 
 		count = int(len(parameters) * PORTION)
 		subset = random.sample(parameters, count)
