@@ -73,6 +73,7 @@ def train(out_dir, epochs):
 	model = model.to(device)
 	if args.lora:
 		model.bert.print_trainable_parameters()
+		out_dir += "lora/"
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
