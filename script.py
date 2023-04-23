@@ -72,7 +72,7 @@ def train(out_dir, epochs):
 	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
 	model = model.to(device)
 	if args.lora:
-		model.print_trainable_parameters()
+		model.bert.print_trainable_parameters()
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
