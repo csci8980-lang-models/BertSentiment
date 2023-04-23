@@ -95,9 +95,10 @@ def train(out_dir, epochs):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
-	for layer in model.bert.encoder.layer:
-		for param in layer.parameters():
-			param.requires_grad = True
+	if not args.lora:
+		for layer in model.bert.encoder.layer:
+			for param in layer.parameters():
+				param.requires_grad = True
 
 	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
