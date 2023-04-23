@@ -21,11 +21,7 @@ from math import ceil
 from pyvacy import optim as optim_pyvacy
 from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
-
-print("Printing1")
-
-BERT_MODEL = 'bert-base-uncased'
-NUM_LABELS = 2  # negative and positive reviews
+from pyvacy import analysis
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
@@ -39,13 +35,22 @@ parser.add_argument('--freeze', action="store_true", help="Freeze bert")
 parser.add_argument('--evaluate', action="store_true", help="Evaluate existing weights")
 parser.add_argument('--predict', default="", type=str, help="Predict sentiment on a given sentence")
 parser.add_argument('--dp', action="store_true", help="use pyvacy")
+parser.add_argument('--epsilon', action="store_true", help="find epsilon value for hardcoded inputs")
+parser.add_argument('--sst', action="store_true", help="Load the SST dataset instead")
 
 args = parser.parse_args()
 
-PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+if args.sst:
+	PRE_TRAINED_MODEL_NAME = 'bert-base-uncased'
+	class_names = ['negative', 'positive']
+	MAX_LEN = 100
+
+else:
+	PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+	class_names = ['negative', "neutral", 'positive']
+	MAX_LEN = 160
+
 RANDOM_SEED = 42
-class_names = ['negative', 'neutral', 'positive']
-MAX_LEN = 160
 BATCH_SIZE = 16
 LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
@@ -59,7 +64,9 @@ def train(out_dir, epochs):
 	df_train, df_val, train_data_loader, val_data_loader = getData(True)
 
 	print("Device", device)
-	model = SentimentClassifier(len(class_names))
+	print(class_names)
+	print(len(class_names), MAX_LEN, PRE_TRAINED_MODEL_NAME, args.sst)
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
 	model = model.to(device)
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
@@ -142,6 +149,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			input_ids = batch["input_ids"].to(device)
 			attention_mask = batch["attention_mask"].to(device)
 			targets = batch["targets"].to(device)
+			# print("targets", targets)
 			for input_id_micro, attention_mask_micro, targets_micro in microbatch_loader(
 					TensorDataset(input_ids, attention_mask, targets)):
 				optimizer.zero_microbatch_grad()
@@ -150,6 +158,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 					attention_mask=attention_mask_micro
 				)
 				_, preds = torch.max(outputs, dim=1)
+				# print("outputs", outputs, "targetMicro", targets_micro)
 				loss = loss_fn(outputs, targets_micro)
 				correct_predictions += torch.sum(preds == targets_micro)
 				# print("Preds", preds)
@@ -165,7 +174,6 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 
 		print(correct_predictions, n_examples)
 		return correct_predictions.double() / n_examples, np.mean(losses)
-
 
 	else:
 		losses = []
@@ -228,34 +236,42 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 
 
 def getData(train):
-	df = pd.read_csv("reviews.csv")
-	df['sentiment'] = df.score.apply(dataset.to_sentiment)
+	sst = True if args.sst else False
+	if sst:
+		df = pd.read_csv("sst2.csv")
+	else:
+		df = pd.read_csv("reviews.csv")
+		df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
 
 	if train:
 		df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
 		print("Training, validation, and test size sets", df_train.shape, df_val.shape, df_test.shape)
-		train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
-		val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
+		train_data_loader = dataset.create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE, sst)
+		val_data_loader = dataset.create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE, sst)
 		return df_train, df_val, train_data_loader, val_data_loader
 
 	else:
-		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
+		test_data_loader = dataset.create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE, sst)
 		return test_data_loader
 
 
 def getDPData():
-	df = pd.read_csv("reviews.csv")
-	df['sentiment'] = df.score.apply(dataset.to_sentiment)
+	sst = True if args.sst else False
+	if sst:
+		df = pd.read_csv("sst2.csv")
+	else:
+		df = pd.read_csv("reviews.csv")
+		df['sentiment'] = df.score.apply(dataset.to_sentiment)
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
-	return dataset.create_dataset(df_train, tokenizer, MAX_LEN)
+	return dataset.create_dataset(df_train, tokenizer, MAX_LEN, sst)
 
 
 def evaluate(out_dir, total_time, epochs, paramNum):
 	test_data_loader = getData(False)
-	model = SentimentClassifier(len(class_names))
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
 	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
@@ -263,8 +279,13 @@ def evaluate(out_dir, total_time, epochs, paramNum):
 		test_data_loader
 	)
 	score = classification_report(y_test, y_pred, target_names=class_names)
+	epsilon = findEpsilon(epochs)
 	with open(out_dir + 'results.txt', 'w+') as f:
-		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}\n")
+		if args.sst:
+			f.write(f"Results for SST-2 GLUE dataset\n")
+		else:
+			f.write(f"Results for normal movie dataset\n")
+		f.write(f"Total Time: {total_time} seconds, Epochs: {epochs}, Epsilon: {epsilon}\n")
 		f.write(f"trainable_param: {paramNum}\n")
 		f.write(f"LEARNING_RATE = {LEARNING_RATE}, L2_NORM_CLIP = {L2_NORM_CLIP}, NOISE = {NOISE}\n")
 		f.write(score)
@@ -306,6 +327,21 @@ def get_predictions(model, data_loader):
 	return review_texts, predictions, prediction_probs, real_values
 
 
+def findEpsilon(epochs):
+	if args.sst:
+		batch_in_epoch = 886
+		num_epoch = epochs
+		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		print("epsilon!", epsilon)
+		return epsilon
+	else:
+		batch_in_epoch = 3789
+		num_epoch = epochs
+		epsilon = analysis.epsilon(60614, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		print("epsilon!", epsilon)
+		return epsilon
+
+
 if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
@@ -315,6 +351,9 @@ if __name__ == '__main__':
 
 	if args.evaluate:
 		evaluate(path, 0, epochs, 'N/A')
+
+	if args.epsilon:
+		findEpsilon(epochs)
 #
 # if len(args.predict) > 0:
 # 	print(predict(args.predict, args.path))
