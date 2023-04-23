@@ -34,8 +34,8 @@ def make_optimizer_class(cls):
             # print(total_norm, clip_coef)
             for group in self.param_groups:
                 for param, accum_grad in zip(group['params'], group['accum_grads']):
-                    if param.requires_grad and param.grad is not None:
-                        print(group['accum_grads'])
+                    if param.requires_grad and param.grad is not None and accum_grad is not None:
+                        # print(group['accum_grads'])
                         accum_grad.add_(param.grad.data.mul(clip_coef))
 
         def zero_grad(self):
