@@ -35,13 +35,6 @@ def make_optimizer_class(cls):
             for group in self.param_groups:
                 for param, accum_grad in zip(group['params'], group['accum_grads']):
                     if param.requires_grad and param.grad is not None:
-                        if(i == 0):
-                            # print(accum_grad)
-                            # print(self.ex)
-                            # print()
-                            self.ex.add_(param.grad.data)
-                            
-                            i += 1
                         accum_grad.add_(param.grad.data.mul(clip_coef))
 
         def zero_grad(self):
