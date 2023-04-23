@@ -276,7 +276,7 @@ def getDPData():
 
 def evaluate(out_dir, total_time, epochs, paramNum):
 	test_data_loader = getData(False)
-	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
 	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
@@ -355,7 +355,7 @@ if __name__ == '__main__':
 		evaluate(output_dir, seconds, epochs, str(paramNum))
 
 	if args.evaluate:
-		evaluate(path, 0, epochs, 'N/A')
+		evaluate(path, 10616, epochs, '294912')
 
 	if args.epsilon:
 		findEpsilon(epochs)
