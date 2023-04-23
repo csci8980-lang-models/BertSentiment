@@ -27,9 +27,11 @@ def freezingModifications(args, model, output_dir):
 
 	if args.freeze:
 		output_dir = output_dir + "freeze/"
-		for layer in model.bert.encoder.layer:
-			for param in layer.parameters():
-				param.requires_grad = False
+		# for layer in model.bert.encoder.layer:
+		# 	for param in layer.parameters():
+		# 		param.requires_grad = False
+		for param in model.bert.parameters():
+			param.requires_grad = False
 
 	if args.layerF:
 		output_dir = output_dir + "layerF/" + str(args.portion) + "/"
