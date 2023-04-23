@@ -22,6 +22,8 @@ from pyvacy import optim as optim_pyvacy
 from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
 from pyvacy import analysis
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
+
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
@@ -37,6 +39,7 @@ parser.add_argument('--predict', default="", type=str, help="Predict sentiment o
 parser.add_argument('--dp', action="store_true", help="use pyvacy")
 parser.add_argument('--epsilon', action="store_true", help="find epsilon value for hardcoded inputs")
 parser.add_argument('--sst', action="store_true", help="Load the SST dataset instead")
+parser.add_argument('--lora', action="store_true", help="Use Lora to train the model")
 
 args = parser.parse_args()
 
@@ -66,8 +69,10 @@ def train(out_dir, epochs):
 	print("Device", device)
 	print(class_names)
 	print(len(class_names), MAX_LEN, PRE_TRAINED_MODEL_NAME, args.sst)
-	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
 	model = model.to(device)
+	if args.lora:
+		model.print_trainable_parameters()
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
