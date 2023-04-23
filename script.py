@@ -40,6 +40,7 @@ parser.add_argument('--dp', action="store_true", help="use pyvacy")
 parser.add_argument('--epsilon', action="store_true", help="find epsilon value for hardcoded inputs")
 parser.add_argument('--sst', action="store_true", help="Load the SST dataset instead")
 parser.add_argument('--lora', action="store_true", help="Use Lora to train the model")
+parser.add_argument('--ptune', action="store_true", help="Use P-Tuning to train the model")
 
 args = parser.parse_args()
 
@@ -95,10 +96,10 @@ def train(out_dir, epochs):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
-	if not args.lora:
-		for layer in model.bert.encoder.layer:
-			for param in layer.parameters():
-				param.requires_grad = True
+	# if not args.lora:
+	# 	for layer in model.bert.encoder.layer:
+	# 		for param in layer.parameters():
+	# 			param.requires_grad = True
 
 	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
