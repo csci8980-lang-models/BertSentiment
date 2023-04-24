@@ -20,7 +20,7 @@ def freezingModifications(args, model, output_dir):
 			params = []
 			for param in layer.parameters():
 				params.append(param)
-			count = int(len(params))
+			count = int(len(params) * PORTION)
 			paramSubset = random.sample(params, count)
 			for param in paramSubset:
 				param.requires_grad = False
