@@ -38,7 +38,7 @@ def freezingModifications(args, model, output_dir):
 		layers = []
 		for layer in model.bert.encoder.layer:
 			layers.append(layer)
-
+		print("NUM OF LAYERS", len(layers))
 		count = int(len(layers) * PORTION)
 		layers = random.sample(layers, count)
 
