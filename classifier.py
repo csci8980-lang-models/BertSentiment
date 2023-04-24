@@ -2,7 +2,7 @@
 from transformers import BertModel
 
 from torch import nn
-from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType, PromptEncoderConfig
 
 class SentimentClassifier(nn.Module):
 
@@ -12,6 +12,11 @@ class SentimentClassifier(nn.Module):
 		if args.lora:
 			peft_config = LoraConfig(
 				inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
+			)
+			self.bert = get_peft_model(self.bert, peft_config)
+		if args.ptune:
+			peft_config = PromptEncoderConfig(
+				task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128
 			)
 			self.bert = get_peft_model(self.bert, peft_config)
 		self.drop = nn.Dropout(p=0.3)

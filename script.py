@@ -75,6 +75,9 @@ def train(out_dir, epochs):
 	if args.lora:
 		model.bert.print_trainable_parameters()
 		out_dir += "lora/"
+	if args.ptune:
+		out_dir += "ptune/"
+
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
