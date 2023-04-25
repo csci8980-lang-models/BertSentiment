@@ -86,6 +86,7 @@ def train(out_dir, epochs):
 			minibatch_size=BATCH_SIZE,
 			microbatch_size=1,
 			lr=LEARNING_RATE,
+			delta=(1/60614)
 		)
 	else:
 		optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
@@ -160,7 +161,6 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			input_ids = batch["input_ids"].to(device)
 			attention_mask = batch["attention_mask"].to(device)
 			targets = batch["targets"].to(device)
-			# print("targets", targets)
 			for input_id_micro, attention_mask_micro, targets_micro in microbatch_loader(
 					TensorDataset(input_ids, attention_mask, targets)):
 				optimizer.zero_microbatch_grad()
@@ -169,12 +169,9 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 					attention_mask=attention_mask_micro
 				)
 				_, preds = torch.max(outputs, dim=1)
-				# print("outputs", outputs, "targetMicro", targets_micro)
 				loss = loss_fn(outputs, targets_micro)
 				correct_predictions += torch.sum(preds == targets_micro)
-				# print("Preds", preds)
-				# print("targets", targets_micro)
-				# print("correct_predictions", correct_predictions)
+
 				losses.append(loss.item())
 				loss.backward()
 				optimizer.microbatch_step()
@@ -342,7 +339,7 @@ def findEpsilon(epochs):
 	if args.sst:
 		batch_in_epoch = 886
 		num_epoch = epochs
-		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch, 1/60614)
 		print("epsilon!", epsilon)
 		return epsilon
 	else:
