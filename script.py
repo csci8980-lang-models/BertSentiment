@@ -86,7 +86,6 @@ def train(out_dir, epochs):
 			minibatch_size=BATCH_SIZE,
 			microbatch_size=1,
 			lr=LEARNING_RATE,
-			delta=(1/60614)
 		)
 	else:
 		optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
