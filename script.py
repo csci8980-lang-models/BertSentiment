@@ -194,9 +194,9 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 				input_ids=input_ids,
 				attention_mask=attention_mask
 			)
-			print(outputs)
-			if not args.ptune:
-				_, preds = torch.max(outputs, dim=1)
+			if args.ptune:
+				outputs = outputs['logits']
+			_, preds = torch.max(outputs, dim=1)
 			loss = loss_fn(outputs, targets)
 
 			correct_predictions += torch.sum(preds == targets)
