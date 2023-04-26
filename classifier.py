@@ -14,11 +14,6 @@ class SentimentClassifier(nn.Module):
 				inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1
 			)
 			self.bert = get_peft_model(self.bert, peft_config)
-		if args.ptune:
-			peft_config = PromptEncoderConfig(
-				task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128
-			)
-			self.bert = get_peft_model(self.bert, peft_config)
 		self.drop = nn.Dropout(p=0.3)
 		self.out = nn.Linear(self.bert.config.hidden_size, n_classes)
 

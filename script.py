@@ -71,7 +71,7 @@ def train(out_dir, epochs):
 	print(class_names)
 	print(len(class_names), MAX_LEN, PRE_TRAINED_MODEL_NAME, args.sst)
 	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
-	model = model.to(device)
+	# model = model.to(device)
 	if args.lora:
 		model.bert.print_trainable_parameters()
 		out_dir += "lora/"
@@ -80,7 +80,7 @@ def train(out_dir, epochs):
 		peft_config = PromptEncoderConfig(task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128)
 		model = AutoModelForSequenceClassification.from_pretrained(PRE_TRAINED_MODEL_NAME)
 		model = get_peft_model(model, peft_config)
-
+	model = model.to(device)
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
