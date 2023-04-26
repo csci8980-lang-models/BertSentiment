@@ -165,6 +165,8 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 					input_ids=input_id_micro,
 					attention_mask=attention_mask_micro
 				)
+				if args.ptune:
+					outputs = outputs['logits']
 				_, preds = torch.max(outputs, dim=1)
 				loss = loss_fn(outputs, targets_micro)
 				correct_predictions += torch.sum(preds == targets_micro)
@@ -326,6 +328,8 @@ def get_predictions(model, data_loader):
 				input_ids=input_ids,
 				attention_mask=attention_mask
 			)
+			if args.ptune:
+				outputs = outputs['logits']
 			_, preds = torch.max(outputs, dim=1)
 
 			probs = F.softmax(outputs, dim=1)
