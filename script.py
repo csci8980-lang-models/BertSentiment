@@ -6,7 +6,8 @@ import time
 from freezing import freezingModifications
 
 from classifier import SentimentClassifier
-from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup
+from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup, \
+	AutoModelForSequenceClassification
 import torch
 import dataset
 import numpy as np
@@ -22,8 +23,7 @@ from pyvacy import optim as optim_pyvacy
 from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
 from pyvacy import analysis
-from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
-
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType, PromptEncoderConfig
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
@@ -77,6 +77,9 @@ def train(out_dir, epochs):
 		out_dir += "lora/"
 	if args.ptune:
 		out_dir += "ptune/"
+		peft_config = PromptEncoderConfig(task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128)
+		model = AutoModelForSequenceClassification.from_pretrained(PRE_TRAINED_MODEL_NAME)
+		model = get_peft_model(model, peft_config)
 
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
@@ -99,16 +102,11 @@ def train(out_dir, epochs):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
-	# if not args.lora:
-	# 	for layer in model.bert.encoder.layer:
-	# 		for param in layer.parameters():
-	# 			param.requires_grad = True
-
-	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
+	print("pre-freezing trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 	model, out_dir = freezingModifications(args, model, out_dir)
 	params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-	print("trainable params", params)
+	print("post freezing trainable params", params)
 	out_dir += datetime.datetime.now().strftime("%m-%d-%Y") + "/"
 	best_accuracy = 0
 
