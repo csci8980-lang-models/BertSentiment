@@ -360,10 +360,9 @@ if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
 
-	if not args.dp:
-		path += "noDP/"
-
 	if args.train:
+		if not args.dp:
+			path += "noDP/"
 		output_dir, seconds, paramNum = train(path, epochs)
 		evaluate(output_dir, seconds, epochs, str(paramNum))
 
