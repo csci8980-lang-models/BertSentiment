@@ -282,6 +282,10 @@ def getDPData():
 def evaluate(out_dir, total_time, epochs, paramNum):
 	test_data_loader = getData(False)
 	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
+	if args.ptune:
+		peft_config = PromptEncoderConfig(task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128)
+		model = AutoModelForSequenceClassification.from_pretrained(PRE_TRAINED_MODEL_NAME)
+		model = get_peft_model(model, peft_config)
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
 	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
