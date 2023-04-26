@@ -231,6 +231,10 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 				input_ids=input_ids,
 				attention_mask=attention_mask
 			)
+
+			if args.ptune:
+				outputs = outputs['logits']
+
 			_, preds = torch.max(outputs, dim=1)
 
 			loss = loss_fn(outputs, targets)
