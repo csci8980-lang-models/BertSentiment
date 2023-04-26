@@ -1,2 +1,2 @@
 #!/bin/bash
-python script.py --layerF --portion=50 --train --sst --epoch=20 && python script.py --layerF --portion=75 --train --sst --epoch=20 && python script.py --paramF --portion=50 --train --sst --epoch=20 && python script.py --paramF --portion=75 --train --sst --epoch=20 && python script.py --plF --portion=50 --train --sst --epoch=20 && python script.py --plF --portion=75 --train --sst --epoch=20
+python script.py --train --dp --sst --epoch=20 --ptune &&  python script.py --train --sst --epoch=20 --ptune
