@@ -41,6 +41,7 @@ parser.add_argument('--epsilon', action="store_true", help="find epsilon value f
 parser.add_argument('--sst', action="store_true", help="Load the SST dataset instead")
 parser.add_argument('--lora', action="store_true", help="Use Lora to train the model")
 parser.add_argument('--ptune', action="store_true", help="Use P-Tuning to train the model")
+parser.add_argument('--lr', type=float, help="Decide what the learning rate is")
 
 args = parser.parse_args()
 
@@ -56,7 +57,10 @@ else:
 
 RANDOM_SEED = 42
 BATCH_SIZE = 16
-LEARNING_RATE = 2e-5
+if args.lr:
+	LEARNING_RATE = args.lr
+else:
+	LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
 NOISE = 1.1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -81,6 +85,7 @@ def train(out_dir, epochs):
 		model = AutoModelForSequenceClassification.from_pretrained(PRE_TRAINED_MODEL_NAME)
 		model = get_peft_model(model, peft_config)
 	model = model.to(device)
+	print("LEARNING RATE!!", LEARNING_RATE)
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
@@ -91,7 +96,7 @@ def train(out_dir, epochs):
 			lr=LEARNING_RATE,
 		)
 	else:
-		optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
+		optimizer = AdamW(model.parameters(), lr=LEARNING_RATE, correct_bias=False)
 	total_steps = len(train_data_loader) * epochs
 
 	scheduler = get_linear_schedule_with_warmup(
