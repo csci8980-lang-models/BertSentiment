@@ -6,7 +6,8 @@ import time
 from freezing import freezingModifications
 
 from classifier import SentimentClassifier
-from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup
+from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup, \
+	AutoModelForSequenceClassification
 import torch
 import dataset
 import numpy as np
@@ -22,10 +23,11 @@ from pyvacy import optim as optim_pyvacy
 from pyvacy import analysis as pyvacy_analysis
 from pyvacy import sampling
 from pyvacy import analysis
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType, PromptEncoderConfig
 
 parser = argparse.ArgumentParser(prog='script')
 parser.add_argument('--train', action="store_true", help="Train new weights")
-parser.add_argument('--path', action="store_true", help="Path of desired model/where you want results")
+parser.add_argument('--path', type=str, help="Path of desired model/where you want results")
 parser.add_argument('--paramF', action="store_true", help="Freeze subset of layers")
 parser.add_argument('--layerF', action="store_true", help="Freeze subset of parameters")
 parser.add_argument('--plF', action="store_true", help="Freeze subset of parameters and layers")
@@ -37,6 +39,9 @@ parser.add_argument('--predict', default="", type=str, help="Predict sentiment o
 parser.add_argument('--dp', action="store_true", help="use pyvacy")
 parser.add_argument('--epsilon', action="store_true", help="find epsilon value for hardcoded inputs")
 parser.add_argument('--sst', action="store_true", help="Load the SST dataset instead")
+parser.add_argument('--lora', action="store_true", help="Use Lora to train the model")
+parser.add_argument('--ptune', action="store_true", help="Use P-Tuning to train the model")
+parser.add_argument('--lr', type=float, help="Decide what the learning rate is")
 
 args = parser.parse_args()
 
@@ -52,7 +57,10 @@ else:
 
 RANDOM_SEED = 42
 BATCH_SIZE = 16
-LEARNING_RATE = 2e-5
+if args.lr:
+	LEARNING_RATE = args.lr
+else:
+	LEARNING_RATE = 2e-5
 L2_NORM_CLIP = 1.0
 NOISE = 1.1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -66,8 +74,18 @@ def train(out_dir, epochs):
 	print("Device", device)
 	print(class_names)
 	print(len(class_names), MAX_LEN, PRE_TRAINED_MODEL_NAME, args.sst)
-	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
+	# model = model.to(device)
+	if args.lora:
+		model.bert.print_trainable_parameters()
+		out_dir += "lora/"
+	if args.ptune:
+		out_dir += "ptune/"
+		peft_config = PromptEncoderConfig(task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128)
+		model = AutoModelForSequenceClassification.from_pretrained(PRE_TRAINED_MODEL_NAME)
+		model = get_peft_model(model, peft_config)
 	model = model.to(device)
+	print("LEARNING RATE!!", LEARNING_RATE)
 	if args.dp:
 		optimizer = optim_pyvacy.DPAdam(
 			params=model.parameters(),
@@ -78,7 +96,7 @@ def train(out_dir, epochs):
 			lr=LEARNING_RATE,
 		)
 	else:
-		optimizer = AdamW(model.parameters(), lr=2e-5, correct_bias=False)
+		optimizer = AdamW(model.parameters(), lr=LEARNING_RATE, correct_bias=False)
 	total_steps = len(train_data_loader) * epochs
 
 	scheduler = get_linear_schedule_with_warmup(
@@ -89,15 +107,11 @@ def train(out_dir, epochs):
 
 	loss_fn = nn.CrossEntropyLoss().to(device)
 
-	for layer in model.bert.encoder.layer:
-		for param in layer.parameters():
-			param.requires_grad = True
-
-	print("trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
+	print("pre-freezing trainable params", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 	model, out_dir = freezingModifications(args, model, out_dir)
 	params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-	print("trainable params", params)
+	print("post freezing trainable params", params)
 	out_dir += datetime.datetime.now().strftime("%m-%d-%Y") + "/"
 	best_accuracy = 0
 
@@ -149,7 +163,6 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 			input_ids = batch["input_ids"].to(device)
 			attention_mask = batch["attention_mask"].to(device)
 			targets = batch["targets"].to(device)
-			# print("targets", targets)
 			for input_id_micro, attention_mask_micro, targets_micro in microbatch_loader(
 					TensorDataset(input_ids, attention_mask, targets)):
 				optimizer.zero_microbatch_grad()
@@ -157,13 +170,12 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 					input_ids=input_id_micro,
 					attention_mask=attention_mask_micro
 				)
+				if args.ptune:
+					outputs = outputs['logits']
 				_, preds = torch.max(outputs, dim=1)
-				# print("outputs", outputs, "targetMicro", targets_micro)
 				loss = loss_fn(outputs, targets_micro)
 				correct_predictions += torch.sum(preds == targets_micro)
-				# print("Preds", preds)
-				# print("targets", targets_micro)
-				# print("correct_predictions", correct_predictions)
+
 				losses.append(loss.item())
 				loss.backward()
 				optimizer.microbatch_step()
@@ -189,7 +201,8 @@ def train_epoch(model, data_loader, loss_fn, optimizer, scheduler, n_examples):
 				input_ids=input_ids,
 				attention_mask=attention_mask
 			)
-
+			if args.ptune:
+				outputs = outputs['logits']
 			_, preds = torch.max(outputs, dim=1)
 			loss = loss_fn(outputs, targets)
 
@@ -225,6 +238,10 @@ def eval_model(model, data_loader, loss_fn, n_examples):
 				input_ids=input_ids,
 				attention_mask=attention_mask
 			)
+
+			if args.ptune:
+				outputs = outputs['logits']
+
 			_, preds = torch.max(outputs, dim=1)
 
 			loss = loss_fn(outputs, targets)
@@ -271,7 +288,11 @@ def getDPData():
 
 def evaluate(out_dir, total_time, epochs, paramNum):
 	test_data_loader = getData(False)
-	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME)
+	model = SentimentClassifier(len(class_names), PRE_TRAINED_MODEL_NAME, args)
+	if args.ptune:
+		peft_config = PromptEncoderConfig(task_type="SEQ_CLS", num_virtual_tokens=20, encoder_hidden_size=128)
+		model = AutoModelForSequenceClassification.from_pretrained(PRE_TRAINED_MODEL_NAME)
+		model = get_peft_model(model, peft_config)
 	model.load_state_dict(torch.load(out_dir + 'best_model_state.bin'))
 	model = model.to(device)
 	y_review_texts, y_pred, y_pred_probs, y_test = get_predictions(
@@ -312,6 +333,8 @@ def get_predictions(model, data_loader):
 				input_ids=input_ids,
 				attention_mask=attention_mask
 			)
+			if args.ptune:
+				outputs = outputs['logits']
 			_, preds = torch.max(outputs, dim=1)
 
 			probs = F.softmax(outputs, dim=1)
@@ -331,7 +354,7 @@ def findEpsilon(epochs):
 	if args.sst:
 		batch_in_epoch = 886
 		num_epoch = epochs
-		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch)
+		epsilon = analysis.epsilon(14176, BATCH_SIZE, NOISE, BATCH_SIZE * batch_in_epoch * num_epoch, 1/60614)
 		print("epsilon!", epsilon)
 		return epsilon
 	else:
@@ -345,12 +368,15 @@ def findEpsilon(epochs):
 if __name__ == '__main__':
 	epochs = args.epoch or 10
 	path = args.path or "results/"
+
 	if args.train:
+		if not args.dp:
+			path += "noDP/"
 		output_dir, seconds, paramNum = train(path, epochs)
 		evaluate(output_dir, seconds, epochs, str(paramNum))
 
 	if args.evaluate:
-		evaluate(path, 0, epochs, 'N/A')
+		evaluate(path, 10616, epochs, '294912')
 
 	if args.epsilon:
 		findEpsilon(epochs)

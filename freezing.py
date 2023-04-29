@@ -20,23 +20,25 @@ def freezingModifications(args, model, output_dir):
 			params = []
 			for param in layer.parameters():
 				params.append(param)
-			count = int(len(params))
+			count = int(len(params) * PORTION)
 			paramSubset = random.sample(params, count)
 			for param in paramSubset:
 				param.requires_grad = False
 
 	if args.freeze:
 		output_dir = output_dir + "freeze/"
-		for layer in model.bert.encoder.layer:
-			for param in layer.parameters():
-				param.requires_grad = False
+		# for layer in model.bert.encoder.layer:
+		# 	for param in layer.parameters():
+		# 		param.requires_grad = False
+		for param in model.bert.parameters():
+			param.requires_grad = False
 
 	if args.layerF:
 		output_dir = output_dir + "layerF/" + str(args.portion) + "/"
 		layers = []
 		for layer in model.bert.encoder.layer:
 			layers.append(layer)
-
+		print("NUM OF LAYERS", len(layers))
 		count = int(len(layers) * PORTION)
 		layers = random.sample(layers, count)
 
